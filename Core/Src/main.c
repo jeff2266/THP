@@ -47,7 +47,7 @@ osThreadId_t defaultTaskHandle;
 const osThreadAttr_t defaultTask_attributes = {
   .name = "defaultTask",
   .priority = (osPriority_t) osPriorityNormal,
-  .stack_size = 128 * 4
+  .stack_size = 256 * 4
 };
 /* USER CODE BEGIN PV */
 __IO FlagStatus TouchDetected     = RESET;
@@ -99,6 +99,19 @@ int main(void)
   MX_ICACHE_Init();
   /* USER CODE BEGIN 2 */
   SystemHardwareInit();
+
+  /* Initialize the micro SD Card */
+  if (BSP_SD_Init(0) != BSP_ERROR_NONE)
+  {
+    Error_Handler();
+  }
+  if (BSP_SD_DetectITConfig(0) != BSP_ERROR_NONE)
+  {
+    Error_Handler();
+  }
+  if (MX_FATFS_Init() != APP_OK) {
+    Error_Handler();
+  }
   /* USER CODE END 2 */
 
   /* Init scheduler */
@@ -305,7 +318,8 @@ void StartDefaultTask(void *argument)
   /* Infinite loop */
   for(;;)
   {
-    osDelay(1);
+	MX_FATFS_Process();
+    osDelay(1000);
   }
   /* USER CODE END 5 */
 }

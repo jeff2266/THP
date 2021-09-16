@@ -36,6 +36,7 @@ extern "C" {
 #include "stm32l562e_discovery_lcd.h"
 #include "stm32l562e_discovery_ts.h"
 #include "stm32l562e_discovery_sd.h"
+#include "app_fatfs.h"
 #include "stm32_lcd.h"
 /* USER CODE END Includes */
 
