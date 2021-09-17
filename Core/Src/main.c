@@ -315,12 +315,15 @@ void BSP_TS_Callback(uint32_t Instance) {
 void StartDefaultTask(void *argument)
 {
   /* USER CODE BEGIN 5 */
-  /* Infinite loop */
-  for(;;)
+  if (bme280_app_init() == BME280_OK)
   {
-	MX_FATFS_Process();
-    osDelay(1000);
+  /* Infinite loop */
+	for(;;)
+	{
+	  osDelay(1000);
+	}
   }
+  osThreadExit();
   /* USER CODE END 5 */
 }
 
