@@ -59,7 +59,7 @@ const osThreadAttr_t lcdRenderTask_attributes = {
   .stack_size = 512 * 4
 };
 /* USER CODE BEGIN PV */
-__IO FlagStatus TouchDetected     = RESET;
+__IO FlagStatus TouchDetected = RESET;
 FlagStatus LcdInitialized = RESET;
 FlagStatus TsInitialized  = RESET;
 
@@ -78,6 +78,7 @@ void LcdRenderTask(void *argument);
 
 /* USER CODE BEGIN PFP */
 int8_t IsReadingWithinRange(double reading, uint buf_len);
+void LcdRenderReading(uint32_t posY, double reading);
 static void SystemHardwareInit(void);
 /* USER CODE END PFP */
 
@@ -141,9 +142,9 @@ int main(void)
   UTIL_LCD_DisplayStringAt(0, 0, (uint8_t *)"TPH Sensor", CENTER_MODE);
   UTIL_LCD_SetBackColor(LCD_BACKGROUND_COLOR);
   UTIL_LCD_SetFont(&Font12);
-  UTIL_LCD_DisplayStringAt(0, PY_TEMPERATURE, (uint8_t *)"Temperature: ", LEFT_MODE);
-  UTIL_LCD_DisplayStringAt(0, PY_HUMIDITY, (uint8_t *)"Humidity: ", LEFT_MODE);
-  UTIL_LCD_DisplayStringAt(0, PY_PRESSURE, (uint8_t *)"Pressure: ", LEFT_MODE);
+  UTIL_LCD_DisplayStringAt(0, PY_TEMPERATURE, (uint8_t *)"Temperature (deg C): ", LEFT_MODE);
+  UTIL_LCD_DisplayStringAt(0, PY_HUMIDITY, (uint8_t *)"Humidity (%RH): ", LEFT_MODE);
+  UTIL_LCD_DisplayStringAt(0, PY_PRESSURE, (uint8_t *)"Pressure (hPa): ", LEFT_MODE);
   /* USER CODE END 2 */
 
   /* Init scheduler */
@@ -401,22 +402,40 @@ static void SystemHardwareInit(void)
   }
 }
 
-void BSP_TS_Callback(uint32_t Instance) {
-  if (Instance == 0) {
-    TouchDetected = SET;
-  }
-}
-
 int8_t IsReadingWithinRange(double reading, uint buflen) {
 	uint minchars = 5; // '0' + decimal + mantisa(2) + '\0'
 	if (reading < 0.) {
 		minchars++; // '-'
 		reading = -reading;
 	}
-	minchars += (int)reading / 10;
+	minchars += (int)reading % 10;
 	if (!(minchars > buflen)) return 0;
 	else if (reading < 0) return -1;
 	else return 1;
+}
+
+void LcdRenderReading(uint32_t posY, double reading) {
+	static char sensor_reading_buf[12];
+	static int8_t isReadingWithinRange;
+	static const uint clear_height = 12;
+	static const uint clear_width = 84;
+
+	isReadingWithinRange = IsReadingWithinRange(reading, sizeof(sensor_reading_buf));
+	UTIL_LCD_SetBackColor(LCD_BACKGROUND_COLOR);
+	UTIL_LCD_FillRect(240 - clear_width, posY, clear_width, clear_height, LCD_BACKGROUND_COLOR);
+	if (isReadingWithinRange > 0) UTIL_LCD_DisplayStringAt(0, posY, (uint8_t *)"99999999.99", RIGHT_MODE);
+	else if (isReadingWithinRange < 0) UTIL_LCD_DisplayStringAt(0, posY, (uint8_t *)"-9999999.99", RIGHT_MODE);
+	else {
+		sprintf(sensor_reading_buf, "%.2f", reading);
+		UTIL_LCD_DisplayStringAt(0, posY, (uint8_t *)sensor_reading_buf, RIGHT_MODE);
+	}
+}
+
+void BSP_TS_Callback(uint32_t Instance) {
+  if (Instance == 0) {
+  	// Signal lcdRenderTask that new tap was detected
+    osThreadFlagsSet(lcdRenderTaskHandle, REND_FLAG_NEW_TAP);
+  }
 }
 /* USER CODE END 4 */
 
@@ -439,7 +458,7 @@ void BmeSampleTask(void *argument)
 				osDelay(pdMS_TO_TICKS(bme280_sample_delay));
 				if (bme280_get_sensor_data(BME280_ALL, &curr_bme_data, &bme_device) == BME280_OK) {
 					// Signal lcdRenderTask that new data is ready
-					osThreadFlagsSet(lcdRenderTaskHandle, 1);
+					osThreadFlagsSet(lcdRenderTaskHandle, REND_FLAG_NEW_DATA);
 				}
 			}
 			// Wait for the next cycle
@@ -459,28 +478,30 @@ void BmeSampleTask(void *argument)
 /* USER CODE END Header_LcdRenderTask */
 void LcdRenderTask(void *argument)
 {
-  /* USER CODE BEGIN LcdRenderTask */
-	int8_t isReadingWithinRange = 0;
-	char sensor_data_buf[10];
-
-	TickType_t xLastWakeTime = osKernelGetTickCount();
+	uint32_t lcd_render_flags;
+	TS_MultiTouch_State_t TsMultipleState = {0};
   /* Infinite loop */
   for(;;)
   {
-  	// Wait for the next cycle
-		osDelayUntil(xLastWakeTime += pdMS_TO_TICKS(RENDER_PERIOD_MS));
 		// Check if there is something new to render (new data, user event)
-		osThreadFlagsWait(1, osFlagsWaitAny, osWaitForever);
+  	lcd_render_flags = osThreadFlagsWait(REND_FLAG_NEW_DATA, osFlagsNoClear, osWaitForever);
 
-		// Display curr temperature
-		isReadingWithinRange = IsReadingWithinRange(curr_bme_data.temperature, sizeof(sensor_data_buf));
-		if (isReadingWithinRange > 0) UTIL_LCD_DisplayStringAt(0, PY_TEMPERATURE, (uint8_t *)"999999.99", RIGHT_MODE);
-		else if (isReadingWithinRange < 0) UTIL_LCD_DisplayStringAt(0, PY_TEMPERATURE, (uint8_t *)"-99999.99", RIGHT_MODE);
-		else {
-			sprintf(sensor_data_buf, "%.2fC", curr_bme_data.temperature);
-			UTIL_LCD_DisplayStringAt(0, PY_TEMPERATURE, (uint8_t *)sensor_data_buf, RIGHT_MODE);
+		if (lcd_render_flags & REND_FLAG_NEW_DATA) {
+			// Display curr temperature
+			LcdRenderReading(PY_TEMPERATURE, curr_bme_data.temperature);
+			// Display curr humidity
+			LcdRenderReading(PY_HUMIDITY, curr_bme_data.humidity);
+			// Display curr pressure
+			LcdRenderReading(PY_PRESSURE, curr_bme_data.pressure);
+			// Clear new data flag
+			osThreadFlagsClear(REND_FLAG_NEW_DATA);
 		}
+		if (lcd_render_flags & REND_FLAG_NEW_TAP) {
+			if (BSP_TS_Get_MultiTouchState(0, &TsMultipleState) != BSP_ERROR_NONE) Error_Handler();
 
+			// Clear new tap flag
+			osThreadFlagsClear(REND_FLAG_NEW_TAP);
+		}
   }
   /* USER CODE END LcdRenderTask */
 }

@@ -72,8 +72,8 @@ void Error_Handler(void);
 #define PY_HUMIDITY								80
 #define PY_PRESSURE								110
 #define SAMPLE_PERIOD_MS 					500
-#define RENDER_PERIOD_MS 					30
-
+#define REND_FLAG_NEW_DATA				( 0x01 << 0 )
+#define REND_FLAG_NEW_TAP					( 0x01 << 1 )
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus
