@@ -56,7 +56,7 @@ osThreadId_t lcdRenderTaskHandle;
 const osThreadAttr_t lcdRenderTask_attributes = {
   .name = "lcdRenderTask",
   .priority = (osPriority_t) osPriorityAboveNormal,
-  .stack_size = 128 * 4
+  .stack_size = 512 * 4
 };
 /* USER CODE BEGIN PV */
 __IO FlagStatus TouchDetected     = RESET;
@@ -77,6 +77,7 @@ void BmeSampleTask(void *argument);
 void LcdRenderTask(void *argument);
 
 /* USER CODE BEGIN PFP */
+int8_t IsReadingWithinRange(double reading, uint buf_len);
 static void SystemHardwareInit(void);
 /* USER CODE END PFP */
 
@@ -405,6 +406,18 @@ void BSP_TS_Callback(uint32_t Instance) {
     TouchDetected = SET;
   }
 }
+
+int8_t IsReadingWithinRange(double reading, uint buflen) {
+	uint minchars = 5; // '0' + decimal + mantisa(2) + '\0'
+	if (reading < 0.) {
+		minchars++; // '-'
+		reading = -reading;
+	}
+	minchars += (int)reading / 10;
+	if (!(minchars > buflen)) return 0;
+	else if (reading < 0) return -1;
+	else return 1;
+}
 /* USER CODE END 4 */
 
 /* USER CODE BEGIN Header_BmeSampleTask */
@@ -418,12 +431,16 @@ void BmeSampleTask(void *argument)
 {
   /* USER CODE BEGIN 5 */
 	if (bme280_app_init() == BME280_OK) {
+		uint32_t bme280_sample_delay = bme280_cal_meas_delay(&(bme_device.settings));
 		TickType_t xLastWakeTime = osKernelGetTickCount();
 		/* Infinite loop */
 		for (;;) {
-			if (bme280_get_sensor_data(BME280_ALL, &curr_bme_data, &bme_device) == BME280_OK) {
-				// Signal lcdRenderTask that new data is ready
-				osThreadFlagsSet(lcdRenderTaskHandle, 1);
+			if (bme280_set_sensor_mode(BME280_FORCED_MODE, &bme_device) == BME280_OK) {
+				osDelay(pdMS_TO_TICKS(bme280_sample_delay));
+				if (bme280_get_sensor_data(BME280_ALL, &curr_bme_data, &bme_device) == BME280_OK) {
+					// Signal lcdRenderTask that new data is ready
+					osThreadFlagsSet(lcdRenderTaskHandle, 1);
+				}
 			}
 			// Wait for the next cycle
 			osDelayUntil(xLastWakeTime += pdMS_TO_TICKS(SAMPLE_PERIOD_MS));
@@ -442,9 +459,9 @@ void BmeSampleTask(void *argument)
 /* USER CODE END Header_LcdRenderTask */
 void LcdRenderTask(void *argument)
 {
-  /* USER CODE BEGIN LcdRenderTask */\
-	int16_t fixed_pt_reading;
-	char sensor_data_buf[9];
+  /* USER CODE BEGIN LcdRenderTask */
+	int8_t isReadingWithinRange = 0;
+	char sensor_data_buf[10];
 
 	TickType_t xLastWakeTime = osKernelGetTickCount();
   /* Infinite loop */
@@ -456,12 +473,12 @@ void LcdRenderTask(void *argument)
 		osThreadFlagsWait(1, osFlagsWaitAny, osWaitForever);
 
 		// Display curr temperature
-		if (curr_bme_data.temperature > 9999.99) UTIL_LCD_DisplayStringAt(0, PY_TEMPERATURE, (uint8_t *)"9999.99", RIGHT_MODE);
-		else if (curr_bme_data.temperature < -9999.99) UTIL_LCD_DisplayStringAt(0, PY_TEMPERATURE, (uint8_t *)"-9999.99", RIGHT_MODE);
+		isReadingWithinRange = IsReadingWithinRange(curr_bme_data.temperature, sizeof(sensor_data_buf));
+		if (isReadingWithinRange > 0) UTIL_LCD_DisplayStringAt(0, PY_TEMPERATURE, (uint8_t *)"999999.99", RIGHT_MODE);
+		else if (isReadingWithinRange < 0) UTIL_LCD_DisplayStringAt(0, PY_TEMPERATURE, (uint8_t *)"-99999.99", RIGHT_MODE);
 		else {
-//			fixed_pt_reading = (int16_t)(curr_bme_data / 0.01);
-//			sprintf(sensor_data_buf, "%f.2C", curr_bme_data.temperature);
-//			UTIL_LCD_DisplayStringAt(0, PY_TEMPERATURE, (uint8_t *)sensor_data_buf, RIGHT_MODE);
+			sprintf(sensor_data_buf, "%.2fC", curr_bme_data.temperature);
+			UTIL_LCD_DisplayStringAt(0, PY_TEMPERATURE, (uint8_t *)sensor_data_buf, RIGHT_MODE);
 		}
 
   }

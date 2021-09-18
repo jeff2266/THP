@@ -71,8 +71,8 @@ void Error_Handler(void);
 #define PY_TEMPERATURE						50
 #define PY_HUMIDITY								80
 #define PY_PRESSURE								110
-#define SAMPLE_PERIOD_MS 					10
-#define RENDER_PERIOD_MS 					25
+#define SAMPLE_PERIOD_MS 					500
+#define RENDER_PERIOD_MS 					30
 
 /* USER CODE END Private defines */
 

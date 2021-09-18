@@ -21,7 +21,14 @@ struct bme280_dev bme_device = {
 struct bme280_data curr_bme_data;
 
 int8_t bme280_app_init(void) {
-	return bme280_init(&bme_device);
+	if (bme280_init(&bme_device) == BME280_OK) {
+		bme_device.settings.osr_h = BME280_OVERSAMPLING_1X;
+		bme_device.settings.osr_p = BME280_OVERSAMPLING_16X;
+		bme_device.settings.osr_t = BME280_OVERSAMPLING_2X;
+		bme_device.settings.filter = BME280_FILTER_COEFF_16;
+		return bme280_set_sensor_settings(BME280_OSR_PRESS_SEL | BME280_OSR_TEMP_SEL | BME280_OSR_HUM_SEL | BME280_FILTER_SEL, &bme_device);
+	}
+	return BME280_E_COMM_FAIL;
 }
 
 void user_delay_us(uint32_t period, void *intf_ptr)
@@ -97,7 +104,7 @@ BME280_INTF_RET_TYPE user_spi_write(uint8_t reg_addr, const uint8_t *reg_data, u
     	send_buf[i + 1] = reg_data[i];
     }
     HAL_GPIO_WritePin(GPIOE, GPIO_PIN_0, GPIO_PIN_RESET);
-    if (HAL_SPI_Transmit(&hspi3, send_buf, len, 100 * len) == HAL_OK) rslt = BME280_OK;
+    if (HAL_SPI_Transmit(&hspi3, send_buf, 1 + len, 100 * len) == HAL_OK) rslt = BME280_OK;
     HAL_GPIO_WritePin(GPIOE, GPIO_PIN_0, GPIO_PIN_SET);
 
     vPortFree(send_buf);
