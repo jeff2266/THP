@@ -58,8 +58,40 @@ const osThreadAttr_t lcdRenderTask_attributes = {
   .priority = (osPriority_t) osPriorityAboveNormal,
   .stack_size = 512 * 4
 };
+/* Definitions for tapCheckTask */
+osThreadId_t tapCheckTaskHandle;
+const osThreadAttr_t tapCheckTask_attributes = {
+  .name = "tapCheckTask",
+  .priority = (osPriority_t) osPriorityHigh,
+  .stack_size = 128 * 4
+};
+/* Definitions for sdWriteTask */
+osThreadId_t sdWriteTaskHandle;
+const osThreadAttr_t sdWriteTask_attributes = {
+  .name = "sdWriteTask",
+  .priority = (osPriority_t) osPriorityLow,
+  .stack_size = 1024 * 4
+};
+/* Definitions for bmeStateLock */
+osMutexId_t bmeStateLockHandle;
+const osMutexAttr_t bmeStateLock_attributes = {
+  .name = "bmeStateLock"
+};
+/* Definitions for StRecEvent */
+osEventFlagsId_t StRecEventHandle;
+const osEventFlagsAttr_t StRecEvent_attributes = {
+  .name = "StRecEvent"
+};
+/* Definitions for SdBufRdyEvent */
+osEventFlagsId_t SdBufRdyEventHandle;
+const osEventFlagsAttr_t SdBufRdyEvent_attributes = {
+  .name = "SdBufRdyEvent"
+};
 /* USER CODE BEGIN PV */
-__IO FlagStatus TouchDetected = RESET;
+
+enum eBmeState { eStream, eRecord, eWrite };
+enum eBmeState curr_state = eStream;
+
 FlagStatus LcdInitialized = RESET;
 FlagStatus TsInitialized  = RESET;
 
@@ -75,10 +107,11 @@ static void MX_GPIO_Init(void);
 static void MX_SPI3_Init(void);
 void BmeSampleTask(void *argument);
 void LcdRenderTask(void *argument);
+void TapCheckTask(void *argument);
+void SdWriteTask(void *argument);
 
 /* USER CODE BEGIN PFP */
-int8_t IsReadingWithinRange(double reading, uint buf_len);
-void LcdRenderReading(uint32_t posY, double reading);
+void LcdRenderReading(const struct bme280_data *reading);
 static void SystemHardwareInit(void);
 /* USER CODE END PFP */
 
@@ -136,19 +169,26 @@ int main(void)
   // Print start screen to LCD display
   UTIL_LCD_Clear(LCD_BACKGROUND_COLOR);
   UTIL_LCD_FillRect(0, 0, 240, 24, UTIL_LCD_COLOR_ST_BLUE_DARK);
-  UTIL_LCD_SetTextColor(UTIL_LCD_COLOR_LIGHTGRAY);
+  UTIL_LCD_SetTextColor(LCD_TEXT_COLOR);
   UTIL_LCD_SetBackColor(UTIL_LCD_COLOR_ST_BLUE_DARK);
   UTIL_LCD_SetFont(&Font24);
   UTIL_LCD_DisplayStringAt(0, 0, (uint8_t *)"TPH Sensor", CENTER_MODE);
   UTIL_LCD_SetBackColor(LCD_BACKGROUND_COLOR);
   UTIL_LCD_SetFont(&Font12);
-  UTIL_LCD_DisplayStringAt(0, PY_TEMPERATURE, (uint8_t *)"Temperature (deg C): ", LEFT_MODE);
+  UTIL_LCD_DisplayStringAt(0, PY_TEMPERATURE, (uint8_t *)"Temperature (C): ", LEFT_MODE);
   UTIL_LCD_DisplayStringAt(0, PY_HUMIDITY, (uint8_t *)"Humidity (%RH): ", LEFT_MODE);
   UTIL_LCD_DisplayStringAt(0, PY_PRESSURE, (uint8_t *)"Pressure (hPa): ", LEFT_MODE);
+  UTIL_LCD_FillRect(0, 192, 240, 48, UTIL_LCD_COLOR_ST_BLUE_DARK);
+  UTIL_LCD_FillRect(PX_RECORD_BUTTON, PY_RECORD_BUTTON, WIDTH_RECORD_BUTTON, HEIGHT_RECORD_BUTTON, RECORD_BUTTON_COLOR_UNPR);
+  UTIL_LCD_SetBackColor(RECORD_BUTTON_COLOR_UNPR);
+  UTIL_LCD_DisplayStringAt(0, PY_RECORD_BUTTON_TEXT, (uint8_t *)BUTTON_TEXT_STREAM, CENTER_MODE);
   /* USER CODE END 2 */
 
   /* Init scheduler */
   osKernelInitialize();
+  /* Create the mutex(es) */
+  /* creation of bmeStateLock */
+  bmeStateLockHandle = osMutexNew(&bmeStateLock_attributes);
 
   /* USER CODE BEGIN RTOS_MUTEX */
   /* add mutexes, ... */
@@ -173,10 +213,22 @@ int main(void)
   /* creation of lcdRenderTask */
   lcdRenderTaskHandle = osThreadNew(LcdRenderTask, NULL, &lcdRenderTask_attributes);
 
+  /* creation of tapCheckTask */
+  tapCheckTaskHandle = osThreadNew(TapCheckTask, NULL, &tapCheckTask_attributes);
+
+  /* creation of sdWriteTask */
+  sdWriteTaskHandle = osThreadNew(SdWriteTask, NULL, &sdWriteTask_attributes);
+
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
 
   /* USER CODE END RTOS_THREADS */
+
+  /* creation of StRecEvent */
+  StRecEventHandle = osEventFlagsNew(&StRecEvent_attributes);
+
+  /* creation of SdBufRdyEvent */
+  SdBufRdyEventHandle = osEventFlagsNew(&SdBufRdyEvent_attributes);
 
   /* USER CODE BEGIN RTOS_EVENTS */
   /* add events, ... */
@@ -402,33 +454,42 @@ static void SystemHardwareInit(void)
   }
 }
 
-int8_t IsReadingWithinRange(double reading, uint buflen) {
-	uint minchars = 5; // '0' + decimal + mantisa(2) + '\0'
-	if (reading < 0.) {
-		minchars++; // '-'
-		reading = -reading;
-	}
-	minchars += (int)reading % 10;
-	if (!(minchars > buflen)) return 0;
-	else if (reading < 0) return -1;
-	else return 1;
-}
-
-void LcdRenderReading(uint32_t posY, double reading) {
-	static char sensor_reading_buf[12];
-	static int8_t isReadingWithinRange;
+void LcdRenderReading(const struct bme280_data *reading) {
+	static char sensor_reading_buf[14];
 	static const uint clear_height = 12;
-	static const uint clear_width = 84;
+	static const uint clear_width = 98;
+	int ibuf;
 
-	isReadingWithinRange = IsReadingWithinRange(reading, sizeof(sensor_reading_buf));
 	UTIL_LCD_SetBackColor(LCD_BACKGROUND_COLOR);
-	UTIL_LCD_FillRect(240 - clear_width, posY, clear_width, clear_height, LCD_BACKGROUND_COLOR);
-	if (isReadingWithinRange > 0) UTIL_LCD_DisplayStringAt(0, posY, (uint8_t *)"99999999.99", RIGHT_MODE);
-	else if (isReadingWithinRange < 0) UTIL_LCD_DisplayStringAt(0, posY, (uint8_t *)"-9999999.99", RIGHT_MODE);
-	else {
-		sprintf(sensor_reading_buf, "%.2f", reading);
-		UTIL_LCD_DisplayStringAt(0, posY, (uint8_t *)sensor_reading_buf, RIGHT_MODE);
+
+	// Temperature is Q30.2 [degC]
+	ibuf = 0;
+	if (reading->temperature < 0) {
+		sensor_reading_buf[ibuf++] = '-';
 	}
+	int tInt = (reading->temperature / 100);
+	int tMant = (reading->temperature % 100);
+	sprintf(sensor_reading_buf, "%i.%i", tInt, tMant);
+	UTIL_LCD_FillRect(240 - clear_width, PY_TEMPERATURE, clear_width, clear_height, LCD_BACKGROUND_COLOR);
+	UTIL_LCD_DisplayStringAt(0, PY_TEMPERATURE, (uint8_t *)sensor_reading_buf, RIGHT_MODE);
+	memset(sensor_reading_buf, '\0', sizeof(sensor_reading_buf));
+
+	// Humidity / 1024 -> adj_humidity is Q32.0 [%RH]
+	ibuf = 0;
+	sprintf(sensor_reading_buf, "%i", (int)(reading->humidity >> 10));
+	UTIL_LCD_FillRect(240 - clear_width, PY_HUMIDITY, clear_width, clear_height, LCD_BACKGROUND_COLOR);
+	UTIL_LCD_DisplayStringAt(0, PY_HUMIDITY, (uint8_t *)sensor_reading_buf, RIGHT_MODE);
+	memset(sensor_reading_buf, '\0', sizeof(sensor_reading_buf));
+
+	// Pressure / 256 -> adj_pressure is Q30.2 [hPa]
+	ibuf = 0;
+	uint32_t adj_pressure = (reading->pressure >> 8);
+	tInt = (adj_pressure / 100);
+	tMant = (adj_pressure % 100);
+	sprintf(sensor_reading_buf, "%i.%i", tInt, tMant);
+	UTIL_LCD_FillRect(240 - clear_width, PY_PRESSURE, clear_width, clear_height, LCD_BACKGROUND_COLOR);
+	UTIL_LCD_DisplayStringAt(0, PY_PRESSURE, (uint8_t *)sensor_reading_buf, RIGHT_MODE);
+	memset(sensor_reading_buf, '\0', sizeof(sensor_reading_buf));
 }
 
 void BSP_TS_Callback(uint32_t Instance) {
@@ -478,32 +539,62 @@ void BmeSampleTask(void *argument)
 /* USER CODE END Header_LcdRenderTask */
 void LcdRenderTask(void *argument)
 {
+  /* USER CODE BEGIN LcdRenderTask */
 	uint32_t lcd_render_flags;
 	TS_MultiTouch_State_t TsMultipleState = {0};
-  /* Infinite loop */
-  for(;;)
-  {
+	/* Infinite loop */
+	for (;;) {
 		// Check if there is something new to render (new data, user event)
-  	lcd_render_flags = osThreadFlagsWait(REND_FLAG_NEW_DATA, osFlagsNoClear, osWaitForever);
+		lcd_render_flags = osThreadFlagsWait(REND_FLAG_NEW_DATA, osFlagsWaitAny, osWaitForever);
 
 		if (lcd_render_flags & REND_FLAG_NEW_DATA) {
-			// Display curr temperature
-			LcdRenderReading(PY_TEMPERATURE, curr_bme_data.temperature);
-			// Display curr humidity
-			LcdRenderReading(PY_HUMIDITY, curr_bme_data.humidity);
-			// Display curr pressure
-			LcdRenderReading(PY_PRESSURE, curr_bme_data.pressure);
-			// Clear new data flag
-			osThreadFlagsClear(REND_FLAG_NEW_DATA);
+			// Display curr readings
+			LcdRenderReading(&curr_bme_data);
 		}
 		if (lcd_render_flags & REND_FLAG_NEW_TAP) {
 			if (BSP_TS_Get_MultiTouchState(0, &TsMultipleState) != BSP_ERROR_NONE) Error_Handler();
-
-			// Clear new tap flag
-			osThreadFlagsClear(REND_FLAG_NEW_TAP);
 		}
-  }
+	}
+	osThreadExit();
   /* USER CODE END LcdRenderTask */
+}
+
+/* USER CODE BEGIN Header_TapCheckTask */
+/**
+* @brief Function implementing the tapCheckTask thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_TapCheckTask */
+void TapCheckTask(void *argument)
+{
+  /* USER CODE BEGIN TapCheckTask */
+  /* Infinite loop */
+  for(;;)
+  {
+    osDelay(1);
+  }
+	osThreadExit();
+  /* USER CODE END TapCheckTask */
+}
+
+/* USER CODE BEGIN Header_SdWriteTask */
+/**
+* @brief Function implementing the sdWriteTask thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_SdWriteTask */
+void SdWriteTask(void *argument)
+{
+  /* USER CODE BEGIN SdWriteTask */
+  /* Infinite loop */
+  for(;;)
+  {
+    osDelay(1);
+  }
+	osThreadExit();
+  /* USER CODE END SdWriteTask */
 }
 
 /**

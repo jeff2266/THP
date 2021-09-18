@@ -33,6 +33,7 @@ extern "C" {
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include <stdio.h>
+#include <string.h>
 #include "stm32l562e_discovery.h"
 #include "stm32l562e_discovery_lcd.h"
 #include "stm32l562e_discovery_ts.h"
@@ -68,9 +69,20 @@ void Error_Handler(void);
 /* Private defines -----------------------------------------------------------*/
 /* USER CODE BEGIN Private defines */
 #define LCD_BACKGROUND_COLOR 			UTIL_LCD_COLOR_BLACK
+#define LCD_TEXT_COLOR						UTIL_LCD_COLOR_WHITE
 #define PY_TEMPERATURE						50
 #define PY_HUMIDITY								80
 #define PY_PRESSURE								110
+#define	RECORD_BUTTON_COLOR_UNPR	UTIL_LCD_COLOR_ST_GRAY_LIGHT
+#define	RECORD_BUTTON_COLOR_PRSS	UTIL_LCD_COLOR_ST_GRAY
+#define PX_RECORD_BUTTON					20
+#define PY_RECORD_BUTTON					204
+#define PY_RECORD_BUTTON_TEXT			(PY_RECORD_BUTTON + 6)
+#define WIDTH_RECORD_BUTTON				(240 - PX_RECORD_BUTTON - PX_RECORD_BUTTON)
+#define HEIGHT_RECORD_BUTTON			24
+#define	BUTTON_TEXT_STREAM				"Record"
+#define	BUTTON_TEXT_RECORD				"Recording..."
+#define	BUTTON_TEXT_WRITE					"Writing to card..."
 #define SAMPLE_PERIOD_MS 					500
 #define REND_FLAG_NEW_DATA				( 0x01 << 0 )
 #define REND_FLAG_NEW_TAP					( 0x01 << 1 )
