@@ -65,6 +65,7 @@ FlagStatus TsInitialized  = RESET;
 
 extern struct bme280_dev bme_device;
 extern struct bme280_data curr_bme_data;
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -76,7 +77,6 @@ void BmeSampleTask(void *argument);
 void LcdRenderTask(void *argument);
 
 /* USER CODE BEGIN PFP */
-void LcdRenderTask(void *argument);
 static void SystemHardwareInit(void);
 /* USER CODE END PFP */
 
@@ -139,7 +139,7 @@ int main(void)
   UTIL_LCD_SetFont(&Font24);
   UTIL_LCD_DisplayStringAt(0, 0, (uint8_t *)"TPH Sensor", CENTER_MODE);
   UTIL_LCD_SetBackColor(LCD_BACKGROUND_COLOR);
-  UTIL_LCD_SetFont(&Font16);
+  UTIL_LCD_SetFont(&Font12);
   UTIL_LCD_DisplayStringAt(0, PY_TEMPERATURE, (uint8_t *)"Temperature: ", LEFT_MODE);
   UTIL_LCD_DisplayStringAt(0, PY_HUMIDITY, (uint8_t *)"Humidity: ", LEFT_MODE);
   UTIL_LCD_DisplayStringAt(0, PY_PRESSURE, (uint8_t *)"Pressure: ", LEFT_MODE);
@@ -421,7 +421,7 @@ void BmeSampleTask(void *argument)
 		TickType_t xLastWakeTime = osKernelGetTickCount();
 		/* Infinite loop */
 		for (;;) {
-			if (bme280_get_sensor_data(7, &curr_bme_data, &bme_device) == BME280_OK) {
+			if (bme280_get_sensor_data(BME280_ALL, &curr_bme_data, &bme_device) == BME280_OK) {
 				// Signal lcdRenderTask that new data is ready
 				osThreadFlagsSet(lcdRenderTaskHandle, 1);
 			}
@@ -442,7 +442,10 @@ void BmeSampleTask(void *argument)
 /* USER CODE END Header_LcdRenderTask */
 void LcdRenderTask(void *argument)
 {
-  /* USER CODE BEGIN LcdRenderTask */
+  /* USER CODE BEGIN LcdRenderTask */\
+	int16_t fixed_pt_reading;
+	char sensor_data_buf[9];
+
 	TickType_t xLastWakeTime = osKernelGetTickCount();
   /* Infinite loop */
   for(;;)
@@ -452,7 +455,15 @@ void LcdRenderTask(void *argument)
 		// Check if there is something new to render (new data, user event)
 		osThreadFlagsWait(1, osFlagsWaitAny, osWaitForever);
 
-		curr_bme_data.humidity
+		// Display curr temperature
+		if (curr_bme_data.temperature > 9999.99) UTIL_LCD_DisplayStringAt(0, PY_TEMPERATURE, (uint8_t *)"9999.99", RIGHT_MODE);
+		else if (curr_bme_data.temperature < -9999.99) UTIL_LCD_DisplayStringAt(0, PY_TEMPERATURE, (uint8_t *)"-9999.99", RIGHT_MODE);
+		else {
+//			fixed_pt_reading = (int16_t)(curr_bme_data / 0.01);
+//			sprintf(sensor_data_buf, "%f.2C", curr_bme_data.temperature);
+//			UTIL_LCD_DisplayStringAt(0, PY_TEMPERATURE, (uint8_t *)sensor_data_buf, RIGHT_MODE);
+		}
+
   }
   /* USER CODE END LcdRenderTask */
 }

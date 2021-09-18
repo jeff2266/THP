@@ -32,6 +32,7 @@ extern "C" {
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include <stdio.h>
 #include "stm32l562e_discovery.h"
 #include "stm32l562e_discovery_lcd.h"
 #include "stm32l562e_discovery_ts.h"
@@ -66,12 +67,13 @@ void Error_Handler(void);
 
 /* Private defines -----------------------------------------------------------*/
 /* USER CODE BEGIN Private defines */
-#define LCD_BACKGROUND_COLOR 	UTIL_LCD_COLOR_BLACK
-#define PY_TEMPERATURE				50
-#define PY_HUMIDITY						90
-#define PY_PRESSURE						130
-#define SAMPLE_PERIOD_MS 			10
-#define RENDER_PERIOD_MS 			25
+#define LCD_BACKGROUND_COLOR 			UTIL_LCD_COLOR_BLACK
+#define PY_TEMPERATURE						50
+#define PY_HUMIDITY								80
+#define PY_PRESSURE								110
+#define SAMPLE_PERIOD_MS 					10
+#define RENDER_PERIOD_MS 					25
+
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus
