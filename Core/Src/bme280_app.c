@@ -18,6 +18,7 @@ struct bme280_dev bme_device = {
 	.write = user_spi_write,
 	.delay_us = user_delay_us,
 };
+struct bme280_data curr_bme_data;
 
 int8_t bme280_app_init(void) {
 	return bme280_init(&bme_device);

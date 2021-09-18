@@ -37,6 +37,7 @@ extern "C" {
 #include "stm32l562e_discovery_ts.h"
 #include "stm32l562e_discovery_sd.h"
 #include "app_fatfs.h"
+#include "bme280.h"
 #include "bme280_app.h"
 #include "stm32_lcd.h"
 /* USER CODE END Includes */
@@ -65,7 +66,12 @@ void Error_Handler(void);
 
 /* Private defines -----------------------------------------------------------*/
 /* USER CODE BEGIN Private defines */
-
+#define LCD_BACKGROUND_COLOR 	UTIL_LCD_COLOR_BLACK
+#define PY_TEMPERATURE				50
+#define PY_HUMIDITY						90
+#define PY_PRESSURE						130
+#define SAMPLE_PERIOD_MS 			10
+#define RENDER_PERIOD_MS 			25
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus

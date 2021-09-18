@@ -44,17 +44,27 @@
 
 SPI_HandleTypeDef hspi3;
 
-/* Definitions for defaultTask */
-osThreadId_t defaultTaskHandle;
-const osThreadAttr_t defaultTask_attributes = {
-  .name = "defaultTask",
+/* Definitions for bmeSampleTask */
+osThreadId_t bmeSampleTaskHandle;
+const osThreadAttr_t bmeSampleTask_attributes = {
+  .name = "bmeSampleTask",
   .priority = (osPriority_t) osPriorityNormal,
-  .stack_size = 256 * 4
+  .stack_size = 128 * 4
+};
+/* Definitions for lcdRenderTask */
+osThreadId_t lcdRenderTaskHandle;
+const osThreadAttr_t lcdRenderTask_attributes = {
+  .name = "lcdRenderTask",
+  .priority = (osPriority_t) osPriorityAboveNormal,
+  .stack_size = 128 * 4
 };
 /* USER CODE BEGIN PV */
 __IO FlagStatus TouchDetected     = RESET;
 FlagStatus LcdInitialized = RESET;
 FlagStatus TsInitialized  = RESET;
+
+extern struct bme280_dev bme_device;
+extern struct bme280_data curr_bme_data;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -62,9 +72,11 @@ void SystemClock_Config(void);
 static void MX_ICACHE_Init(void);
 static void MX_GPIO_Init(void);
 static void MX_SPI3_Init(void);
-void StartDefaultTask(void *argument);
+void BmeSampleTask(void *argument);
+void LcdRenderTask(void *argument);
 
 /* USER CODE BEGIN PFP */
+void LcdRenderTask(void *argument);
 static void SystemHardwareInit(void);
 /* USER CODE END PFP */
 
@@ -118,6 +130,19 @@ int main(void)
   if (MX_FATFS_Init() != APP_OK) {
     Error_Handler();
   }
+
+  // Print start screen to LCD display
+  UTIL_LCD_Clear(LCD_BACKGROUND_COLOR);
+  UTIL_LCD_FillRect(0, 0, 240, 24, UTIL_LCD_COLOR_ST_BLUE_DARK);
+  UTIL_LCD_SetTextColor(UTIL_LCD_COLOR_LIGHTGRAY);
+  UTIL_LCD_SetBackColor(UTIL_LCD_COLOR_ST_BLUE_DARK);
+  UTIL_LCD_SetFont(&Font24);
+  UTIL_LCD_DisplayStringAt(0, 0, (uint8_t *)"TPH Sensor", CENTER_MODE);
+  UTIL_LCD_SetBackColor(LCD_BACKGROUND_COLOR);
+  UTIL_LCD_SetFont(&Font16);
+  UTIL_LCD_DisplayStringAt(0, PY_TEMPERATURE, (uint8_t *)"Temperature: ", LEFT_MODE);
+  UTIL_LCD_DisplayStringAt(0, PY_HUMIDITY, (uint8_t *)"Humidity: ", LEFT_MODE);
+  UTIL_LCD_DisplayStringAt(0, PY_PRESSURE, (uint8_t *)"Pressure: ", LEFT_MODE);
   /* USER CODE END 2 */
 
   /* Init scheduler */
@@ -140,11 +165,15 @@ int main(void)
   /* USER CODE END RTOS_QUEUES */
 
   /* Create the thread(s) */
-  /* creation of defaultTask */
-  defaultTaskHandle = osThreadNew(StartDefaultTask, NULL, &defaultTask_attributes);
+  /* creation of bmeSampleTask */
+  bmeSampleTaskHandle = osThreadNew(BmeSampleTask, NULL, &bmeSampleTask_attributes);
+
+  /* creation of lcdRenderTask */
+  lcdRenderTaskHandle = osThreadNew(LcdRenderTask, NULL, &lcdRenderTask_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
+
   /* USER CODE END RTOS_THREADS */
 
   /* USER CODE BEGIN RTOS_EVENTS */
@@ -335,7 +364,7 @@ static void SystemHardwareInit(void)
     UTIL_LCD_SetFuncDriver(&lcdDrv);
 
     /* Clear the LCD */
-    UTIL_LCD_Clear(UTIL_LCD_COLOR_WHITE);
+    UTIL_LCD_Clear(LCD_BACKGROUND_COLOR);
 
     /* Set the display on */
     if (BSP_LCD_DisplayOn(0) != BSP_ERROR_NONE)
@@ -372,32 +401,60 @@ static void SystemHardwareInit(void)
 }
 
 void BSP_TS_Callback(uint32_t Instance) {
-	if (Instance == 0) {
-		TouchDetected = SET;
-	}
+  if (Instance == 0) {
+    TouchDetected = SET;
+  }
 }
 /* USER CODE END 4 */
 
-/* USER CODE BEGIN Header_StartDefaultTask */
+/* USER CODE BEGIN Header_BmeSampleTask */
 /**
-  * @brief  Function implementing the defaultTask thread.
+  * @brief  Function implementing the bmeSampleTask thread.
   * @param  argument: Not used
   * @retval None
   */
-/* USER CODE END Header_StartDefaultTask */
-void StartDefaultTask(void *argument)
+/* USER CODE END Header_BmeSampleTask */
+void BmeSampleTask(void *argument)
 {
   /* USER CODE BEGIN 5 */
-  if (bme280_app_init() == BME280_OK)
-  {
-  /* Infinite loop */
-	for(;;)
-	{
-	  osDelay(1000);
+	if (bme280_app_init() == BME280_OK) {
+		TickType_t xLastWakeTime = osKernelGetTickCount();
+		/* Infinite loop */
+		for (;;) {
+			if (bme280_get_sensor_data(7, &curr_bme_data, &bme_device) == BME280_OK) {
+				// Signal lcdRenderTask that new data is ready
+				osThreadFlagsSet(lcdRenderTaskHandle, 1);
+			}
+			// Wait for the next cycle
+			osDelayUntil(xLastWakeTime += pdMS_TO_TICKS(SAMPLE_PERIOD_MS));
+		}
 	}
-  }
-  osThreadExit();
+	osThreadExit();
   /* USER CODE END 5 */
+}
+
+/* USER CODE BEGIN Header_LcdRenderTask */
+/**
+* @brief Function implementing the lcdRenderTask thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_LcdRenderTask */
+void LcdRenderTask(void *argument)
+{
+  /* USER CODE BEGIN LcdRenderTask */
+	TickType_t xLastWakeTime = osKernelGetTickCount();
+  /* Infinite loop */
+  for(;;)
+  {
+  	// Wait for the next cycle
+		osDelayUntil(xLastWakeTime += pdMS_TO_TICKS(RENDER_PERIOD_MS));
+		// Check if there is something new to render (new data, user event)
+		osThreadFlagsWait(1, osFlagsWaitAny, osWaitForever);
+
+		curr_bme_data.humidity
+  }
+  /* USER CODE END LcdRenderTask */
 }
 
 /**
