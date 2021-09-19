@@ -84,8 +84,11 @@ void Error_Handler(void);
 #define	BUTTON_TEXT_RECORD				"Recording..."
 #define	BUTTON_TEXT_WRITE					"Writing to card..."
 #define SAMPLE_PERIOD_MS 					500
-#define REND_FLAG_NEW_DATA				( 0x01 << 0 )
-#define REND_FLAG_NEW_TAP					( 0x01 << 1 )
+#define BME_FLAG_NEW_DATA					( 0x01 << 0 )
+#define BME_FLAG_ST_REC						( 0x01 << 1 )
+#define BME_FLAG_SD_BUF_RDY				( 0x01 << 2 )
+#define BME_FLAG_SD_WR_DONE				( 0x01 << 3 )
+#define TAP_FLAG_NEW_TAP					( 0x01 << 0 )
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus

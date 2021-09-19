@@ -77,21 +77,17 @@ osMutexId_t bmeStateLockHandle;
 const osMutexAttr_t bmeStateLock_attributes = {
   .name = "bmeStateLock"
 };
-/* Definitions for StRecEvent */
-osEventFlagsId_t StRecEventHandle;
-const osEventFlagsAttr_t StRecEvent_attributes = {
-  .name = "StRecEvent"
-};
-/* Definitions for SdBufRdyEvent */
-osEventFlagsId_t SdBufRdyEventHandle;
-const osEventFlagsAttr_t SdBufRdyEvent_attributes = {
-  .name = "SdBufRdyEvent"
+/* Definitions for bmeEvents */
+osEventFlagsId_t bmeEventsHandle;
+const osEventFlagsAttr_t bmeEvents_attributes = {
+  .name = "bmeEvents"
 };
 /* USER CODE BEGIN PV */
 
 enum eBmeState { eStream, eRecord, eWrite };
 enum eBmeState curr_state = eStream;
 
+__IO FlagStatus TouchDetected     = RESET;
 FlagStatus LcdInitialized = RESET;
 FlagStatus TsInitialized  = RESET;
 
@@ -172,7 +168,7 @@ int main(void)
   UTIL_LCD_SetTextColor(LCD_TEXT_COLOR);
   UTIL_LCD_SetBackColor(UTIL_LCD_COLOR_ST_BLUE_DARK);
   UTIL_LCD_SetFont(&Font24);
-  UTIL_LCD_DisplayStringAt(0, 0, (uint8_t *)"TPH Sensor", CENTER_MODE);
+  UTIL_LCD_DisplayStringAt(0, 0, (uint8_t *)"THP Sensor", CENTER_MODE);
   UTIL_LCD_SetBackColor(LCD_BACKGROUND_COLOR);
   UTIL_LCD_SetFont(&Font12);
   UTIL_LCD_DisplayStringAt(0, PY_TEMPERATURE, (uint8_t *)"Temperature (C): ", LEFT_MODE);
@@ -224,11 +220,8 @@ int main(void)
 
   /* USER CODE END RTOS_THREADS */
 
-  /* creation of StRecEvent */
-  StRecEventHandle = osEventFlagsNew(&StRecEvent_attributes);
-
-  /* creation of SdBufRdyEvent */
-  SdBufRdyEventHandle = osEventFlagsNew(&SdBufRdyEvent_attributes);
+  /* creation of bmeEvents */
+  bmeEventsHandle = osEventFlagsNew(&bmeEvents_attributes);
 
   /* USER CODE BEGIN RTOS_EVENTS */
   /* add events, ... */
@@ -495,7 +488,6 @@ void LcdRenderReading(const struct bme280_data *reading) {
 void BSP_TS_Callback(uint32_t Instance) {
   if (Instance == 0) {
   	// Signal lcdRenderTask that new tap was detected
-    osThreadFlagsSet(lcdRenderTaskHandle, REND_FLAG_NEW_TAP);
   }
 }
 /* USER CODE END 4 */
@@ -519,8 +511,15 @@ void BmeSampleTask(void *argument)
 				osDelay(pdMS_TO_TICKS(bme280_sample_delay));
 				if (bme280_get_sensor_data(BME280_ALL, &curr_bme_data, &bme_device) == BME280_OK) {
 					// Signal lcdRenderTask that new data is ready
-					osThreadFlagsSet(lcdRenderTaskHandle, REND_FLAG_NEW_DATA);
+					osEventFlagsSet(bmeEventsHandle, BME_FLAG_NEW_DATA);
 				}
+
+				// If recording, write to sd buf
+				if (osMutexAcquire(bmeStateLockHandle, 100) != osOK) Error_Handler();
+				if (curr_state == eRecord) {
+
+				}
+				if (osMutexRelease(bmeStateLockHandle) != osOK) Error_Handler();
 			}
 			// Wait for the next cycle
 			osDelayUntil(xLastWakeTime += pdMS_TO_TICKS(SAMPLE_PERIOD_MS));
@@ -540,19 +539,29 @@ void BmeSampleTask(void *argument)
 void LcdRenderTask(void *argument)
 {
   /* USER CODE BEGIN LcdRenderTask */
-	uint32_t lcd_render_flags;
-	TS_MultiTouch_State_t TsMultipleState = {0};
+	uint32_t bme_event_flags;
 	/* Infinite loop */
 	for (;;) {
 		// Check if there is something new to render (new data, user event)
-		lcd_render_flags = osThreadFlagsWait(REND_FLAG_NEW_DATA, osFlagsWaitAny, osWaitForever);
+		bme_event_flags = osEventFlagsWait(
+				bmeEventsHandle,
+				BME_FLAG_NEW_DATA | BME_FLAG_ST_REC | BME_FLAG_SD_BUF_RDY | BME_FLAG_SD_WR_DONE,
+				osFlagsWaitAny,
+				osWaitForever);
 
-		if (lcd_render_flags & REND_FLAG_NEW_DATA) {
+		if (bme_event_flags & BME_FLAG_NEW_DATA) {
 			// Display curr readings
 			LcdRenderReading(&curr_bme_data);
 		}
-		if (lcd_render_flags & REND_FLAG_NEW_TAP) {
-			if (BSP_TS_Get_MultiTouchState(0, &TsMultipleState) != BSP_ERROR_NONE) Error_Handler();
+		if (bme_event_flags & BME_FLAG_ST_REC) {
+			UTIL_LCD_FillRect(PX_RECORD_BUTTON, PY_RECORD_BUTTON, WIDTH_RECORD_BUTTON, HEIGHT_RECORD_BUTTON, RECORD_BUTTON_COLOR_PRSS);
+			UTIL_LCD_DisplayStringAt(0, PY_RECORD_BUTTON_TEXT, (uint8_t*)BUTTON_TEXT_RECORD, CENTER_MODE);
+		}
+		if (bme_event_flags & BME_FLAG_SD_BUF_RDY) {
+
+		}
+		if (bme_event_flags & BME_FLAG_SD_WR_DONE) {
+
 		}
 	}
 	osThreadExit();
@@ -569,10 +578,33 @@ void LcdRenderTask(void *argument)
 void TapCheckTask(void *argument)
 {
   /* USER CODE BEGIN TapCheckTask */
+  uint16_t x, y;
+  osStatus_t tap_flag_wait_result;
+	TS_MultiTouch_State_t TsMultipleState = {0};
   /* Infinite loop */
   for(;;)
   {
-    osDelay(1);
+  	tap_flag_wait_result = osThreadFlagsWait(TAP_FLAG_NEW_TAP, osFlagsNoClear, osWaitForever);
+    if (BSP_TS_Get_MultiTouchState(0, &TsMultipleState) != BSP_ERROR_NONE) Error_Handler();
+
+    // Check if tap on button and state is stream
+    if(TsMultipleState.TouchDetected >= 1)
+    {
+      x = TsMultipleState.TouchX[0];
+      y = TsMultipleState.TouchY[0];
+      if (x > PX_RECORD_BUTTON && x < PX_RECORD_BUTTON + WIDTH_RECORD_BUTTON &&
+					y > PY_RECORD_BUTTON && y < PY_RECORD_BUTTON + HEIGHT_RECORD_BUTTON) {
+      	// Update state
+				if (osMutexAcquire(bmeStateLockHandle, 100) != osOK) Error_Handler();
+				if (curr_state == eStream) {
+					// Set event
+					osEventFlagsSet(bmeEventsHandle, BME_FLAG_ST_REC);
+					curr_state = eRecord;
+				}
+				if (osMutexRelease(bmeStateLockHandle) != osOK) Error_Handler();
+      }
+    }
+    osThreadFlagsClear(TAP_FLAG_NEW_TAP);
   }
 	osThreadExit();
   /* USER CODE END TapCheckTask */
