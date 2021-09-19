@@ -42,6 +42,7 @@ extern "C" {
 #include "bme280.h"
 #include "bme280_app.h"
 #include "stm32_lcd.h"
+#include "task.h"
 /* USER CODE END Includes */
 
 /* Exported types ------------------------------------------------------------*/
@@ -76,14 +77,15 @@ void Error_Handler(void);
 #define	RECORD_BUTTON_COLOR_UNPR	UTIL_LCD_COLOR_ST_GRAY_LIGHT
 #define	RECORD_BUTTON_COLOR_PRSS	UTIL_LCD_COLOR_ST_GRAY
 #define PX_RECORD_BUTTON					20
-#define PY_RECORD_BUTTON					204
-#define PY_RECORD_BUTTON_TEXT			(PY_RECORD_BUTTON + 6)
+#define PY_RECORD_BUTTON					144
+#define PY_RECORD_BUTTON_TEXT			(PY_RECORD_BUTTON + (HEIGHT_RECORD_BUTTON >> 1) - 6)
 #define WIDTH_RECORD_BUTTON				(240 - PX_RECORD_BUTTON - PX_RECORD_BUTTON)
-#define HEIGHT_RECORD_BUTTON			24
+#define HEIGHT_RECORD_BUTTON			84
 #define	BUTTON_TEXT_STREAM				"Record"
 #define	BUTTON_TEXT_RECORD				"Recording..."
 #define	BUTTON_TEXT_WRITE					"Writing to card..."
 #define SAMPLE_PERIOD_MS 					500
+#define TAP_POLL_PERIOD_MS				20
 #define BME_FLAG_NEW_DATA					( 0x01 << 0 )
 #define BME_FLAG_ST_REC						( 0x01 << 1 )
 #define BME_FLAG_SD_BUF_RDY				( 0x01 << 2 )

@@ -174,7 +174,7 @@ int main(void)
   UTIL_LCD_DisplayStringAt(0, PY_TEMPERATURE, (uint8_t *)"Temperature (C): ", LEFT_MODE);
   UTIL_LCD_DisplayStringAt(0, PY_HUMIDITY, (uint8_t *)"Humidity (%RH): ", LEFT_MODE);
   UTIL_LCD_DisplayStringAt(0, PY_PRESSURE, (uint8_t *)"Pressure (hPa): ", LEFT_MODE);
-  UTIL_LCD_FillRect(0, 192, 240, 48, UTIL_LCD_COLOR_ST_BLUE_DARK);
+  UTIL_LCD_FillRect(0, 132, 240, 108, UTIL_LCD_COLOR_ST_BLUE_DARK);
   UTIL_LCD_FillRect(PX_RECORD_BUTTON, PY_RECORD_BUTTON, WIDTH_RECORD_BUTTON, HEIGHT_RECORD_BUTTON, RECORD_BUTTON_COLOR_UNPR);
   UTIL_LCD_SetBackColor(RECORD_BUTTON_COLOR_UNPR);
   UTIL_LCD_DisplayStringAt(0, PY_RECORD_BUTTON_TEXT, (uint8_t *)BUTTON_TEXT_STREAM, CENTER_MODE);
@@ -487,7 +487,10 @@ void LcdRenderReading(const struct bme280_data *reading) {
 
 void BSP_TS_Callback(uint32_t Instance) {
   if (Instance == 0) {
-  	// Signal lcdRenderTask that new tap was detected
+		if (TouchDetected == RESET) {
+			// Signal tapCheck that new tap was detected
+			osThreadFlagsSet(tapCheckTaskHandle, TAP_FLAG_NEW_TAP);
+  	}
   }
 }
 /* USER CODE END 4 */
@@ -522,7 +525,8 @@ void BmeSampleTask(void *argument)
 				if (osMutexRelease(bmeStateLockHandle) != osOK) Error_Handler();
 			}
 			// Wait for the next cycle
-			osDelayUntil(xLastWakeTime += pdMS_TO_TICKS(SAMPLE_PERIOD_MS));
+			xLastWakeTime += pdMS_TO_TICKS(SAMPLE_PERIOD_MS);
+			osDelayUntil(xLastWakeTime);
 		}
 	}
 	osThreadExit();
@@ -579,22 +583,21 @@ void TapCheckTask(void *argument)
 {
   /* USER CODE BEGIN TapCheckTask */
   uint16_t x, y;
-  osStatus_t tap_flag_wait_result;
 	TS_MultiTouch_State_t TsMultipleState = {0};
   /* Infinite loop */
   for(;;)
   {
-  	tap_flag_wait_result = osThreadFlagsWait(TAP_FLAG_NEW_TAP, osFlagsNoClear, osWaitForever);
-    if (BSP_TS_Get_MultiTouchState(0, &TsMultipleState) != BSP_ERROR_NONE) Error_Handler();
-
-    // Check if tap on button and state is stream
-    if(TsMultipleState.TouchDetected >= 1)
-    {
-      x = TsMultipleState.TouchX[0];
-      y = TsMultipleState.TouchY[0];
-      if (x > PX_RECORD_BUTTON && x < PX_RECORD_BUTTON + WIDTH_RECORD_BUTTON &&
+		osThreadFlagsWait(TAP_FLAG_NEW_TAP, osFlagsNoClear, osWaitForever);
+		taskENTER_CRITICAL();
+		if (BSP_TS_Get_MultiTouchState(0, &TsMultipleState) != BSP_ERROR_NONE) Error_Handler();
+		taskEXIT_CRITICAL();
+		// Check if tap on button and state is stream
+		if (TsMultipleState.TouchDetected >= 1) {
+			x = TsMultipleState.TouchX[0];
+			y = TsMultipleState.TouchY[0];
+			if (x > PX_RECORD_BUTTON && x < PX_RECORD_BUTTON + WIDTH_RECORD_BUTTON &&
 					y > PY_RECORD_BUTTON && y < PY_RECORD_BUTTON + HEIGHT_RECORD_BUTTON) {
-      	// Update state
+				// Update state
 				if (osMutexAcquire(bmeStateLockHandle, 100) != osOK) Error_Handler();
 				if (curr_state == eStream) {
 					// Set event
@@ -602,9 +605,10 @@ void TapCheckTask(void *argument)
 					curr_state = eRecord;
 				}
 				if (osMutexRelease(bmeStateLockHandle) != osOK) Error_Handler();
-      }
-    }
-    osThreadFlagsClear(TAP_FLAG_NEW_TAP);
+			}
+		}
+		osThreadFlagsClear(TAP_FLAG_NEW_TAP);
+		TouchDetected = RESET;
   }
 	osThreadExit();
   /* USER CODE END TapCheckTask */
