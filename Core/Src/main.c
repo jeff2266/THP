@@ -486,11 +486,9 @@ void LcdRenderReading(const struct bme280_data *reading) {
 }
 
 void BSP_TS_Callback(uint32_t Instance) {
-  if (Instance == 0) {
-		if (TouchDetected == RESET) {
-			// Signal tapCheck that new tap was detected
-			osThreadFlagsSet(tapCheckTaskHandle, TAP_FLAG_NEW_TAP);
-  	}
+	if (Instance == 0) {
+		// Signal tapCheck that new tap was detected
+		TouchDetected = SET;
   }
 }
 /* USER CODE END 4 */
@@ -584,31 +582,34 @@ void TapCheckTask(void *argument)
   /* USER CODE BEGIN TapCheckTask */
   uint16_t x, y;
 	TS_MultiTouch_State_t TsMultipleState = {0};
+	TickType_t xLastWakeTime = osKernelGetTickCount();
   /* Infinite loop */
   for(;;)
   {
-		osThreadFlagsWait(TAP_FLAG_NEW_TAP, osFlagsNoClear, osWaitForever);
-		taskENTER_CRITICAL();
-		if (BSP_TS_Get_MultiTouchState(0, &TsMultipleState) != BSP_ERROR_NONE) Error_Handler();
-		taskEXIT_CRITICAL();
-		// Check if tap on button and state is stream
-		if (TsMultipleState.TouchDetected >= 1) {
-			x = TsMultipleState.TouchX[0];
-			y = TsMultipleState.TouchY[0];
-			if (x > PX_RECORD_BUTTON && x < PX_RECORD_BUTTON + WIDTH_RECORD_BUTTON &&
-					y > PY_RECORD_BUTTON && y < PY_RECORD_BUTTON + HEIGHT_RECORD_BUTTON) {
-				// Update state
-				if (osMutexAcquire(bmeStateLockHandle, 100) != osOK) Error_Handler();
-				if (curr_state == eStream) {
-					// Set event
-					osEventFlagsSet(bmeEventsHandle, BME_FLAG_ST_REC);
-					curr_state = eRecord;
+		if (TouchDetected == SET) {
+			taskENTER_CRITICAL();
+			TouchDetected = RESET;
+			if (BSP_TS_Get_MultiTouchState(0, &TsMultipleState) != BSP_ERROR_NONE) Error_Handler();
+			// Check if tap on button and state is stream
+			if (TsMultipleState.TouchDetected >= 1) {
+				x = TsMultipleState.TouchX[0];
+				y = TsMultipleState.TouchY[0];
+				if (x > PX_RECORD_BUTTON && x < PX_RECORD_BUTTON + WIDTH_RECORD_BUTTON &&
+						y > PY_RECORD_BUTTON && y < PY_RECORD_BUTTON + HEIGHT_RECORD_BUTTON) {
+					// Update state
+//				if (osMutexAcquire(bmeStateLockHandle, 100) != osOK) Error_Handler();
+					if (curr_state == eStream) {
+						// Set event
+						osEventFlagsSet(bmeEventsHandle, BME_FLAG_ST_REC);
+						curr_state = eRecord;
+					}
+//				if (osMutexRelease(bmeStateLockHandle) != osOK) Error_Handler();
 				}
-				if (osMutexRelease(bmeStateLockHandle) != osOK) Error_Handler();
 			}
+			taskEXIT_CRITICAL();
 		}
-		osThreadFlagsClear(TAP_FLAG_NEW_TAP);
-		TouchDetected = RESET;
+		xLastWakeTime += pdMS_TO_TICKS(TAP_POLL_PERIOD_MS);
+		osDelayUntil(xLastWakeTime);
   }
 	osThreadExit();
   /* USER CODE END TapCheckTask */
