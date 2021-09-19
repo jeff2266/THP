@@ -34,6 +34,7 @@ extern "C" {
 /* USER CODE BEGIN Includes */
 #include <stdio.h>
 #include <string.h>
+#include <limits.h>
 #include "stm32l562e_discovery.h"
 #include "stm32l562e_discovery_lcd.h"
 #include "stm32l562e_discovery_ts.h"
@@ -82,17 +83,16 @@ void Error_Handler(void);
 #define PY_RECORD_BUTTON_TEXT			(PY_RECORD_BUTTON + (HEIGHT_RECORD_BUTTON >> 1) - 6)
 #define WIDTH_RECORD_BUTTON				(240 - PX_RECORD_BUTTON - PX_RECORD_BUTTON)
 #define HEIGHT_RECORD_BUTTON			84
-#define	BUTTON_TEXT_STREAM				"Record"
-#define	BUTTON_TEXT_RECORD				"Recording..."
-#define	BUTTON_TEXT_WRITE					"Writing to card..."
+#define	BUTTON_TEXT_STREAMING			"Record"
+#define	BUTTON_TEXT_RECORDING			"Recording..."
+#define	BUTTON_TEXT_WRITING				"Writing to card..."
 #define SAMPLE_PERIOD_MS 					500
-#define NUMBER_OF_SAMPLES					20
+#define NUMBER_OF_SAMPLES_TO_REC	30
 #define TAP_POLL_PERIOD_MS				20
 #define BME_FLAG_NEW_DATA					( 0x01 << 0 )
-#define BME_FLAG_ST_REC						( 0x01 << 1 )
-#define BME_FLAG_SD_BUF_RDY				( 0x01 << 2 )
+#define BME_FLAG_START_RECORDING	( 0x01 << 1 )
+#define BME_FLAG_RECORDING_DONE		( 0x01 << 2 )
 #define BME_FLAG_SD_WR_DONE				( 0x01 << 3 )
-#define TAP_FLAG_NEW_TAP					( 0x01 << 0 )
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus

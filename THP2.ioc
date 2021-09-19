@@ -1,9 +1,8 @@
 #MicroXplorer Configuration settings - do not modify
-FREERTOS.Events01=bmeEvents,Dynamic,NULL
+FREERTOS.Events01=
 FREERTOS.FootprintOK=true
-FREERTOS.IPParameters=Tasks01,configUSE_NEWLIB_REENTRANT,FootprintOK,configENABLE_FPU,configTOTAL_HEAP_SIZE,Events01,Mutexes01
-FREERTOS.Mutexes01=bmeStateLock,Dynamic,NULL
-FREERTOS.Tasks01=bmeSampleTask,24,128,BmeSampleTask,Default,NULL,Dynamic,NULL,NULL;lcdRenderTask,32,512,LcdRenderTask,Default,NULL,Dynamic,NULL,NULL;tapCheckTask,40,128,TapCheckTask,Default,NULL,Dynamic,NULL,NULL;sdWriteTask,8,1024,SdWriteTask,Default,NULL,Dynamic,NULL,NULL
+FREERTOS.IPParameters=Tasks01,configUSE_NEWLIB_REENTRANT,FootprintOK,configENABLE_FPU,configTOTAL_HEAP_SIZE,Events01
+FREERTOS.Tasks01=bmeSampleTask,16,128,BmeSampleTask,Default,NULL,Dynamic,NULL,NULL;lcdRenderTask,32,512,LcdRenderTask,Default,NULL,Dynamic,NULL,NULL;tapCheckTask,40,128,TapCheckTask,Default,NULL,Dynamic,NULL,NULL;sdWriteTask,24,1024,SdWriteTask,Default,NULL,Dynamic,NULL,NULL
 FREERTOS.configENABLE_FPU=0
 FREERTOS.configTOTAL_HEAP_SIZE=16384
 FREERTOS.configUSE_NEWLIB_REENTRANT=1
