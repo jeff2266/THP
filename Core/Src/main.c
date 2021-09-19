@@ -95,6 +95,7 @@ extern struct bme280_dev bme_device;
 extern struct bme280_data curr_bme_data;
 
 struct bme280_data sd_raw_data_buf[NUMBER_OF_SAMPLES];
+int iSdRawDataBuf = 0;
 
 /* USER CODE END PV */
 
@@ -495,7 +496,6 @@ void BmeSampleTask(void *argument)
 {
   /* USER CODE BEGIN 5 */
 	if (bme280_app_init() == BME280_OK) {
-		int iSdRawDataBuf = 0;
 		uint32_t bme280_sample_delay = bme280_cal_meas_delay(&(bme_device.settings));
 		TickType_t xLastWakeTime = osKernelGetTickCount();
 		/* Infinite loop */
@@ -557,14 +557,18 @@ void LcdRenderTask(void *argument)
 		}
 		if (bme_event_flags & BME_FLAG_ST_REC) {
 			UTIL_LCD_FillRect(PX_RECORD_BUTTON, PY_RECORD_BUTTON, WIDTH_RECORD_BUTTON, HEIGHT_RECORD_BUTTON, RECORD_BUTTON_COLOR_PRSS);
+			UTIL_LCD_SetBackColor(RECORD_BUTTON_COLOR_PRSS);
 			UTIL_LCD_DisplayStringAt(0, PY_RECORD_BUTTON_TEXT, (uint8_t*)BUTTON_TEXT_RECORD, CENTER_MODE);
 		}
 		if (bme_event_flags & BME_FLAG_SD_BUF_RDY) {
 			UTIL_LCD_FillRect(PX_RECORD_BUTTON, PY_RECORD_BUTTON, WIDTH_RECORD_BUTTON, HEIGHT_RECORD_BUTTON, RECORD_BUTTON_COLOR_PRSS);
+			UTIL_LCD_SetBackColor(RECORD_BUTTON_COLOR_PRSS);
 			UTIL_LCD_DisplayStringAt(0, PY_RECORD_BUTTON_TEXT, (uint8_t*)BUTTON_TEXT_WRITE, CENTER_MODE);
 		}
 		if (bme_event_flags & BME_FLAG_SD_WR_DONE) {
-
+		  UTIL_LCD_FillRect(PX_RECORD_BUTTON, PY_RECORD_BUTTON, WIDTH_RECORD_BUTTON, HEIGHT_RECORD_BUTTON, RECORD_BUTTON_COLOR_UNPR);
+		  UTIL_LCD_SetBackColor(RECORD_BUTTON_COLOR_UNPR);
+		  UTIL_LCD_DisplayStringAt(0, PY_RECORD_BUTTON_TEXT, (uint8_t *)BUTTON_TEXT_STREAM, CENTER_MODE);
 		}
 	}
 	osThreadExit();
@@ -627,11 +631,66 @@ void TapCheckTask(void *argument)
 void SdWriteTask(void *argument)
 {
   /* USER CODE BEGIN SdWriteTask */
+  FRESULT res; /* FatFs function common result code */
+  FILINFO fInfo;
+  uint32_t bytestowrite, byteswritten; /* File write/read counts */
+  static const char separator = ',';
+  static const char lr = '\n';
+  char single_line_buf[14];
   /* Infinite loop */
-  for(;;)
-  {
-    osDelay(1);
-  }
+	for (;;) {
+		osEventFlagsWait(bmeEventsHandle, BME_FLAG_SD_BUF_RDY, osFlagsWaitAny, osWaitForever);
+		/* Register the file system object to the FatFs module */
+		if (f_mount(&SDFatFS, (TCHAR const*) SDPath, 0) == FR_OK) {
+			/* If file exists already, delete it */
+			if (f_stat("THP_REC.TXT", &fInfo) == FR_OK) f_unlink("THP_REC.TXT");
+
+			/* Create and Open a new text file object with write access */
+			if (f_open(&SDFile, "THP_REC.TXT", FA_CREATE_ALWAYS | FA_WRITE) == FR_OK) {
+				iSdRawDataBuf--;
+				for (; iSdRawDataBuf >= 0; iSdRawDataBuf--) {
+					/* Write temperature */
+					bytestowrite = WriteTemperature(sd_raw_data_buf[iSdRawDataBuf].temperature, single_line_buf, sizeof(single_line_buf));
+					if (bytestowrite < 0) break;
+					res = f_write(&SDFile, single_line_buf, bytestowrite, (void*)&byteswritten);
+					if (res != FR_OK || byteswritten != bytestowrite) break;
+					res = f_write(&SDFile, &separator, sizeof(separator), (void*)&byteswritten);
+					if (res != FR_OK || byteswritten != sizeof(separator)) break;
+					memset(single_line_buf, '\0', sizeof(single_line_buf));
+
+					/* Write humidity */
+					bytestowrite = WriteHumidity(sd_raw_data_buf[iSdRawDataBuf].humidity, single_line_buf, sizeof(single_line_buf));
+					if (bytestowrite < 0) break;
+					res = f_write(&SDFile, single_line_buf, bytestowrite, (void*) &byteswritten);
+					if (res != FR_OK || byteswritten != bytestowrite) break;
+					res = f_write(&SDFile, &separator, sizeof(separator), (void*)&byteswritten);
+					if (res != FR_OK || byteswritten != sizeof(separator)) break;
+					memset(single_line_buf, '\0', sizeof(single_line_buf));
+
+					/* Write pressure */
+					bytestowrite = WritePressure(sd_raw_data_buf[iSdRawDataBuf].pressure, single_line_buf, sizeof(single_line_buf));
+					if (bytestowrite < 0) break;
+					res = f_write(&SDFile, single_line_buf, bytestowrite, (void*) &byteswritten);
+					if (res != FR_OK || byteswritten != bytestowrite) break;
+					res = f_write(&SDFile, &separator, sizeof(separator), (void*)&byteswritten);
+					if (res != FR_OK || byteswritten != sizeof(separator)) break;
+					memset(single_line_buf, '\0', sizeof(single_line_buf));
+
+					res = f_write(&SDFile, &lr, sizeof(lr), (void*)&byteswritten);
+					if (res != FR_OK || byteswritten != sizeof(lr)) break;
+				}
+				/* Close the open text file */
+				f_close(&SDFile);
+			}
+		}
+		iSdRawDataBuf = 0;
+
+		// Raise SD wr done event and update state
+		if (osMutexAcquire(bmeStateLockHandle, 100) != osOK) Error_Handler();
+		curr_state = eStream;
+		if (osMutexRelease(bmeStateLockHandle) != osOK) Error_Handler();
+		osEventFlagsSet(bmeEventsHandle, BME_FLAG_SD_WR_DONE);
+	}
 	osThreadExit();
   /* USER CODE END SdWriteTask */
 }
