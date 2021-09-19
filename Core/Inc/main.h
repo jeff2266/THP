@@ -85,6 +85,7 @@ void Error_Handler(void);
 #define	BUTTON_TEXT_RECORD				"Recording..."
 #define	BUTTON_TEXT_WRITE					"Writing to card..."
 #define SAMPLE_PERIOD_MS 					500
+#define NUMBER_OF_SAMPLES					20
 #define TAP_POLL_PERIOD_MS				20
 #define BME_FLAG_NEW_DATA					( 0x01 << 0 )
 #define BME_FLAG_ST_REC						( 0x01 << 1 )

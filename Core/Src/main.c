@@ -94,6 +94,8 @@ FlagStatus TsInitialized  = RESET;
 extern struct bme280_dev bme_device;
 extern struct bme280_data curr_bme_data;
 
+struct bme280_data sd_raw_data_buf[NUMBER_OF_SAMPLES];
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -504,6 +506,7 @@ void BmeSampleTask(void *argument)
 {
   /* USER CODE BEGIN 5 */
 	if (bme280_app_init() == BME280_OK) {
+		int iSdRawDataBuf = 0;
 		uint32_t bme280_sample_delay = bme280_cal_meas_delay(&(bme_device.settings));
 		TickType_t xLastWakeTime = osKernelGetTickCount();
 		/* Infinite loop */
@@ -518,7 +521,15 @@ void BmeSampleTask(void *argument)
 				// If recording, write to sd buf
 				if (osMutexAcquire(bmeStateLockHandle, 100) != osOK) Error_Handler();
 				if (curr_state == eRecord) {
-
+					if (iSdRawDataBuf < NUMBER_OF_SAMPLES) {
+						sd_raw_data_buf[iSdRawDataBuf] = curr_bme_data;
+						iSdRawDataBuf++;
+					}
+					else
+					{
+						osEventFlagsSet(bmeEventsHandle, BME_FLAG_SD_BUF_RDY);
+						curr_state = eWrite;
+					}
 				}
 				if (osMutexRelease(bmeStateLockHandle) != osOK) Error_Handler();
 			}
@@ -560,7 +571,8 @@ void LcdRenderTask(void *argument)
 			UTIL_LCD_DisplayStringAt(0, PY_RECORD_BUTTON_TEXT, (uint8_t*)BUTTON_TEXT_RECORD, CENTER_MODE);
 		}
 		if (bme_event_flags & BME_FLAG_SD_BUF_RDY) {
-
+			UTIL_LCD_FillRect(PX_RECORD_BUTTON, PY_RECORD_BUTTON, WIDTH_RECORD_BUTTON, HEIGHT_RECORD_BUTTON, RECORD_BUTTON_COLOR_PRSS);
+			UTIL_LCD_DisplayStringAt(0, PY_RECORD_BUTTON_TEXT, (uint8_t*)BUTTON_TEXT_WRITE, CENTER_MODE);
 		}
 		if (bme_event_flags & BME_FLAG_SD_WR_DONE) {
 
@@ -599,7 +611,7 @@ void TapCheckTask(void *argument)
 					// Update state
 //				if (osMutexAcquire(bmeStateLockHandle, 100) != osOK) Error_Handler();
 					if (curr_state == eStream) {
-						// Set event
+						// Set event and update state
 						osEventFlagsSet(bmeEventsHandle, BME_FLAG_ST_REC);
 						curr_state = eRecord;
 					}
