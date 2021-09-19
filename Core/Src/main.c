@@ -453,38 +453,27 @@ void LcdRenderReading(const struct bme280_data *reading) {
 	static char sensor_reading_buf[14];
 	static const uint clear_height = 12;
 	static const uint clear_width = 98;
-	int ibuf;
 
 	UTIL_LCD_SetBackColor(LCD_BACKGROUND_COLOR);
 
-	// Temperature is Q30.2 [degC]
-	ibuf = 0;
-	if (reading->temperature < 0) {
-		sensor_reading_buf[ibuf++] = '-';
+	if (WriteTemperature(reading->temperature, sensor_reading_buf, sizeof(sensor_reading_buf)) > 0) {
+		UTIL_LCD_FillRect(240 - clear_width, PY_TEMPERATURE, clear_width, clear_height, LCD_BACKGROUND_COLOR);
+		UTIL_LCD_DisplayStringAt(0, PY_TEMPERATURE, (uint8_t *)sensor_reading_buf, RIGHT_MODE);
+		memset(sensor_reading_buf, '\0', sizeof(sensor_reading_buf));
 	}
-	int tInt = (reading->temperature / 100);
-	int tMant = (reading->temperature % 100);
-	sprintf(sensor_reading_buf, "%i.%i", tInt, tMant);
-	UTIL_LCD_FillRect(240 - clear_width, PY_TEMPERATURE, clear_width, clear_height, LCD_BACKGROUND_COLOR);
-	UTIL_LCD_DisplayStringAt(0, PY_TEMPERATURE, (uint8_t *)sensor_reading_buf, RIGHT_MODE);
-	memset(sensor_reading_buf, '\0', sizeof(sensor_reading_buf));
 
-	// Humidity / 1024 -> adj_humidity is Q32.0 [%RH]
-	ibuf = 0;
-	sprintf(sensor_reading_buf, "%i", (int)(reading->humidity >> 10));
-	UTIL_LCD_FillRect(240 - clear_width, PY_HUMIDITY, clear_width, clear_height, LCD_BACKGROUND_COLOR);
-	UTIL_LCD_DisplayStringAt(0, PY_HUMIDITY, (uint8_t *)sensor_reading_buf, RIGHT_MODE);
-	memset(sensor_reading_buf, '\0', sizeof(sensor_reading_buf));
+	if (WriteHumidity(reading->humidity, sensor_reading_buf, sizeof(sensor_reading_buf))) {
+		UTIL_LCD_FillRect(240 - clear_width, PY_HUMIDITY, clear_width, clear_height, LCD_BACKGROUND_COLOR);
+		UTIL_LCD_DisplayStringAt(0, PY_HUMIDITY, (uint8_t *)sensor_reading_buf, RIGHT_MODE);
+		memset(sensor_reading_buf, '\0', sizeof(sensor_reading_buf));
+	}
 
-	// Pressure / 256 -> adj_pressure is Q30.2 [hPa]
-	ibuf = 0;
-	uint32_t adj_pressure = (reading->pressure >> 8);
-	tInt = (adj_pressure / 100);
-	tMant = (adj_pressure % 100);
-	sprintf(sensor_reading_buf, "%i.%i", tInt, tMant);
-	UTIL_LCD_FillRect(240 - clear_width, PY_PRESSURE, clear_width, clear_height, LCD_BACKGROUND_COLOR);
-	UTIL_LCD_DisplayStringAt(0, PY_PRESSURE, (uint8_t *)sensor_reading_buf, RIGHT_MODE);
-	memset(sensor_reading_buf, '\0', sizeof(sensor_reading_buf));
+
+	if (WritePressure(reading->pressure, sensor_reading_buf, sizeof(sensor_reading_buf)) > 0) {
+		UTIL_LCD_FillRect(240 - clear_width, PY_PRESSURE, clear_width, clear_height, LCD_BACKGROUND_COLOR);
+		UTIL_LCD_DisplayStringAt(0, PY_PRESSURE, (uint8_t *)sensor_reading_buf, RIGHT_MODE);
+		memset(sensor_reading_buf, '\0', sizeof(sensor_reading_buf));
+	}
 }
 
 void BSP_TS_Callback(uint32_t Instance) {
@@ -593,11 +582,12 @@ void TapCheckTask(void *argument)
 {
   /* USER CODE BEGIN TapCheckTask */
   uint16_t x, y;
+  uint8_t shouldSuspend = 0;
 	TS_MultiTouch_State_t TsMultipleState = {0};
-	TickType_t xLastWakeTime = osKernelGetTickCount();
   /* Infinite loop */
   for(;;)
   {
+  	if (shouldSuspend) osThreadSuspend(tapCheckTaskHandle);
 		if (TouchDetected == SET) {
 			taskENTER_CRITICAL();
 			TouchDetected = RESET;
@@ -614,14 +604,14 @@ void TapCheckTask(void *argument)
 						// Set event and update state
 						osEventFlagsSet(bmeEventsHandle, BME_FLAG_ST_REC);
 						curr_state = eRecord;
+						shouldSuspend = TRUE;
 					}
 //				if (osMutexRelease(bmeStateLockHandle) != osOK) Error_Handler();
 				}
 			}
 			taskEXIT_CRITICAL();
 		}
-		xLastWakeTime += pdMS_TO_TICKS(TAP_POLL_PERIOD_MS);
-		osDelayUntil(xLastWakeTime);
+		osDelay(pdMS_TO_TICKS(TAP_POLL_PERIOD_MS));
   }
 	osThreadExit();
   /* USER CODE END TapCheckTask */

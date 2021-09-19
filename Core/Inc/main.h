@@ -43,6 +43,7 @@ extern "C" {
 #include "bme280_app.h"
 #include "stm32_lcd.h"
 #include "task.h"
+#include "write_readings.h"
 /* USER CODE END Includes */
 
 /* Exported types ------------------------------------------------------------*/
