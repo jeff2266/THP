@@ -73,6 +73,7 @@ const osThreadAttr_t sdWriteTask_attributes = {
   .stack_size = 1024 * 4
 };
 /* USER CODE BEGIN PV */
+volatile uint32_t* DWT_CTRL = (uint32_t*)0xE0001000;
 
 enum eBmeState { eStream, eRecord, eWrite };
 enum eBmeState curr_state = eStream;
@@ -107,6 +108,7 @@ void SdWriteTask(void *argument);
 void LcdRenderReading(const struct bme280_data *reading);
 UINT WriteReadingAndCommaToFile(FIL* SDFile, char* single_line_buf, int bufSize);
 static void SystemHardwareInit(void);
+extern void SEGGER_UART_init(U32 baud);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -130,7 +132,7 @@ int main(void)
   HAL_Init();
 
   /* USER CODE BEGIN Init */
-
+  *(DWT_CTRL) |= (1 << 0);
   /* USER CODE END Init */
 
   /* Configure the system clock */
@@ -213,6 +215,9 @@ int main(void)
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
   osThreadSuspend(sdWriteTaskHandle);
+//  SEGGER_UART_init(SEGGER_UART_BAUD_RATE);
+  SEGGER_SYSVIEW_Conf();
+  SEGGER_SYSVIEW_Start();
   /* USER CODE END RTOS_THREADS */
 
   /* USER CODE BEGIN RTOS_EVENTS */

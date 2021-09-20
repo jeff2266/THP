@@ -76,8 +76,8 @@ void Error_Handler(void);
 #define PY_TEMPERATURE						50
 #define PY_HUMIDITY								80
 #define PY_PRESSURE								110
-#define	RECORD_BUTTON_COLOR_UNPR	UTIL_LCD_COLOR_ST_GRAY_LIGHT
-#define	RECORD_BUTTON_COLOR_PRSS	UTIL_LCD_COLOR_ST_GRAY
+#define	RECORD_BUTTON_COLOR_UNPR	UTIL_LCD_COLOR_ST_GRAY_DARK
+#define	RECORD_BUTTON_COLOR_PRSS	0xFF222222UL
 #define PX_RECORD_BUTTON					20
 #define PY_RECORD_BUTTON					144
 #define PY_RECORD_BUTTON_TEXT			(PY_RECORD_BUTTON + (HEIGHT_RECORD_BUTTON >> 1) - 6)
@@ -87,12 +87,13 @@ void Error_Handler(void);
 #define	BUTTON_TEXT_RECORDING			"Recording..."
 #define	BUTTON_TEXT_WRITING				"Writing to card..."
 #define SAMPLE_PERIOD_MS 					500
-#define NUMBER_OF_SAMPLES_TO_REC	30
+#define NUMBER_OF_SAMPLES_TO_REC	15
 #define TAP_POLL_PERIOD_MS				20
 #define BME_FLAG_NEW_DATA					( 0x01 << 0 )
 #define BME_FLAG_START_RECORDING	( 0x01 << 1 )
 #define BME_FLAG_RECORDING_DONE		( 0x01 << 2 )
 #define BME_FLAG_SD_WR_DONE				( 0x01 << 3 )
+#define SEGGER_UART_BAUD_RATE			28000
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus

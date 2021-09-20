@@ -33,12 +33,42 @@
 	</natures>
 	<linkedResources>
 		<link>
+			<name>SEGGER_C_M33</name>
+			<type>2</type>
+			<locationURI>virtual:/virtual</locationURI>
+		</link>
+		<link>
 			<name>Drivers/BME280</name>
 			<type>2</type>
 			<locationURI>virtual:/virtual</locationURI>
 		</link>
 		<link>
 			<name>Drivers/BSP</name>
+			<type>2</type>
+			<locationURI>virtual:/virtual</locationURI>
+		</link>
+		<link>
+			<name>SEGGER_C_M33/Config</name>
+			<type>2</type>
+			<locationURI>virtual:/virtual</locationURI>
+		</link>
+		<link>
+			<name>SEGGER_C_M33/OS</name>
+			<type>2</type>
+			<locationURI>virtual:/virtual</locationURI>
+		</link>
+		<link>
+			<name>SEGGER_C_M33/Patch</name>
+			<type>2</type>
+			<locationURI>virtual:/virtual</locationURI>
+		</link>
+		<link>
+			<name>SEGGER_C_M33/Record</name>
+			<type>2</type>
+			<locationURI>virtual:/virtual</locationURI>
+		</link>
+		<link>
+			<name>SEGGER_C_M33/SEGGER</name>
 			<type>2</type>
 			<locationURI>virtual:/virtual</locationURI>
 		</link>
@@ -84,6 +114,96 @@
 		</link>
 		<link>
 			<name>Drivers/BSP/STM32L562E-DK</name>
+			<type>2</type>
+			<locationURI>virtual:/virtual</locationURI>
+		</link>
+		<link>
+			<name>SEGGER_C_M33/Config/Global.h</name>
+			<type>1</type>
+			<location>C:/Users/Jeff/STM32CubeIDE/workspace_1.7.0/common/ThirdParty/SEGGER_C_M33/Config/Global.h</location>
+		</link>
+		<link>
+			<name>SEGGER_C_M33/Config/SEGGER_RTT_Conf.h</name>
+			<type>1</type>
+			<location>C:/Users/Jeff/STM32CubeIDE/workspace_1.7.0/common/ThirdParty/SEGGER_C_M33/Config/SEGGER_RTT_Conf.h</location>
+		</link>
+		<link>
+			<name>SEGGER_C_M33/Config/SEGGER_SYSVIEW_Conf.h</name>
+			<type>1</type>
+			<location>C:/Users/Jeff/STM32CubeIDE/workspace_1.7.0/common/ThirdParty/SEGGER_C_M33/Config/SEGGER_SYSVIEW_Conf.h</location>
+		</link>
+		<link>
+			<name>SEGGER_C_M33/Config/SEGGER_SYSVIEW_Config_FreeRTOS.c</name>
+			<type>1</type>
+			<location>C:/Users/Jeff/STM32CubeIDE/workspace_1.7.0/common/ThirdParty/SEGGER_C_M33/Config/SEGGER_SYSVIEW_Config_FreeRTOS.c</location>
+		</link>
+		<link>
+			<name>SEGGER_C_M33/OS/SEGGER_SYSVIEW_FreeRTOS.c</name>
+			<type>1</type>
+			<location>C:/Users/Jeff/STM32CubeIDE/workspace_1.7.0/common/ThirdParty/SEGGER_C_M33/OS/SEGGER_SYSVIEW_FreeRTOS.c</location>
+		</link>
+		<link>
+			<name>SEGGER_C_M33/OS/SEGGER_SYSVIEW_FreeRTOS.h</name>
+			<type>1</type>
+			<location>C:/Users/Jeff/STM32CubeIDE/workspace_1.7.0/common/ThirdParty/SEGGER_C_M33/OS/SEGGER_SYSVIEW_FreeRTOS.h</location>
+		</link>
+		<link>
+			<name>SEGGER_C_M33/Patch/FreeRTOSv202012.00_segger_cm4_v1.patch</name>
+			<type>1</type>
+			<location>C:/Users/Jeff/STM32CubeIDE/workspace_1.7.0/common/ThirdParty/SEGGER_C_M33/Patch/FreeRTOSv202012.00_segger_cm4_v1.patch</location>
+		</link>
+		<link>
+			<name>SEGGER_C_M33/Record/segger_uart.c</name>
+			<type>1</type>
+			<location>C:/Users/Jeff/STM32CubeIDE/workspace_1.7.0/common/ThirdParty/SEGGER_C_M33/Record/segger_uart.c</location>
+		</link>
+		<link>
+			<name>SEGGER_C_M33/SEGGER/SEGGER.h</name>
+			<type>1</type>
+			<location>C:/Users/Jeff/STM32CubeIDE/workspace_1.7.0/common/ThirdParty/SEGGER_C_M33/SEGGER/SEGGER.h</location>
+		</link>
+		<link>
+			<name>SEGGER_C_M33/SEGGER/SEGGER_RTT.c</name>
+			<type>1</type>
+			<location>C:/Users/Jeff/STM32CubeIDE/workspace_1.7.0/common/ThirdParty/SEGGER_C_M33/SEGGER/SEGGER_RTT.c</location>
+		</link>
+		<link>
+			<name>SEGGER_C_M33/SEGGER/SEGGER_RTT.h</name>
+			<type>1</type>
+			<location>C:/Users/Jeff/STM32CubeIDE/workspace_1.7.0/common/ThirdParty/SEGGER_C_M33/SEGGER/SEGGER_RTT.h</location>
+		</link>
+		<link>
+			<name>SEGGER_C_M33/SEGGER/SEGGER_RTT_ASM_ARMv7M.S</name>
+			<type>1</type>
+			<location>C:/Users/Jeff/STM32CubeIDE/workspace_1.7.0/common/ThirdParty/SEGGER_C_M33/SEGGER/SEGGER_RTT_ASM_ARMv7M.S</location>
+		</link>
+		<link>
+			<name>SEGGER_C_M33/SEGGER/SEGGER_RTT_printf.c</name>
+			<type>1</type>
+			<location>C:/Users/Jeff/STM32CubeIDE/workspace_1.7.0/common/ThirdParty/SEGGER_C_M33/SEGGER/SEGGER_RTT_printf.c</location>
+		</link>
+		<link>
+			<name>SEGGER_C_M33/SEGGER/SEGGER_SYSVIEW.c</name>
+			<type>1</type>
+			<location>C:/Users/Jeff/STM32CubeIDE/workspace_1.7.0/common/ThirdParty/SEGGER_C_M33/SEGGER/SEGGER_SYSVIEW.c</location>
+		</link>
+		<link>
+			<name>SEGGER_C_M33/SEGGER/SEGGER_SYSVIEW.h</name>
+			<type>1</type>
+			<location>C:/Users/Jeff/STM32CubeIDE/workspace_1.7.0/common/ThirdParty/SEGGER_C_M33/SEGGER/SEGGER_SYSVIEW.h</location>
+		</link>
+		<link>
+			<name>SEGGER_C_M33/SEGGER/SEGGER_SYSVIEW_ConfDefaults.h</name>
+			<type>1</type>
+			<location>C:/Users/Jeff/STM32CubeIDE/workspace_1.7.0/common/ThirdParty/SEGGER_C_M33/SEGGER/SEGGER_SYSVIEW_ConfDefaults.h</location>
+		</link>
+		<link>
+			<name>SEGGER_C_M33/SEGGER/SEGGER_SYSVIEW_Int.h</name>
+			<type>1</type>
+			<location>C:/Users/Jeff/STM32CubeIDE/workspace_1.7.0/common/ThirdParty/SEGGER_C_M33/SEGGER/SEGGER_SYSVIEW_Int.h</location>
+		</link>
+		<link>
+			<name>SEGGER_C_M33/SEGGER/Syscalls</name>
 			<type>2</type>
 			<locationURI>virtual:/virtual</locationURI>
 		</link>
@@ -201,6 +321,11 @@
 			<name>Drivers/BSP/STM32L562E-DK/stm32l562e_discovery_ts.h</name>
 			<type>1</type>
 			<location>C:/Users/Jeff/STM32Cube/Repository/STM32Cube_FW_L5_V1.4.0/Drivers/BSP/STM32L562E-DK/stm32l562e_discovery_ts.h</location>
+		</link>
+		<link>
+			<name>SEGGER_C_M33/SEGGER/Syscalls/SEGGER_RTT_Syscalls_GCC.c</name>
+			<type>1</type>
+			<location>C:/Users/Jeff/STM32CubeIDE/workspace_1.7.0/common/ThirdParty/SEGGER_C_M33/SEGGER/Syscalls/SEGGER_RTT_Syscalls_GCC.c</location>
 		</link>
 		<link>
 			<name>Drivers/BSP/Components/Common/Release_Notes.html</name>
